@@ -172,3 +172,16 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# User data
+*.xls
+*.xlsx
+*.7z
+*.accdb
+*.laccdb
+*.ini
+*.json
+
+# My tools
+pydev_is_thread_alive.py
+usef.py
