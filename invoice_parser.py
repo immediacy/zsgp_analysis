@@ -1,30 +1,48 @@
 import fitz  # pip install pymupdf
 import re, os
 
-legal_form_exp = (r'(?i)\b(ООО|АО|ЗАО|ОАО|ПАО|ИП|НКО|Общество с ограниченной ответственностью'
-                    r'|ТОО|ГК|СОЮЗ|ФОНД|ТД|ТФ|Акционерное общество|Компания|'
-                    r'Публичное акционерное общество|Индивидуальный предприниматель)')
-company_name_exp = (legal_form_exp +
-                    r'[\s«"„“”\'‹›„“”‘’]*([\w\s\-.&«»"“”‘’„]+)\b')
-company_name_exp_2 = legal_form_exp + r'\s*["«„“”\'»][^"«„“”\'»]+["»“”\'»]'
+all_legal_form_exp = (r'(?i)\b(ООО|АО|ЗАО|ОАО|ПАО|ИП|НКО'
+                       r'|ТОО|ГК|СОЮЗ|ФОНД|ТД|ТФ|'
+                       r'Акционерное общество|Компания|Общество с ограниченной ответственностью|'
+                       r'Публичное акционерное общество|Индивидуальный предприниматель|'
+                       r'Группа компаний)')
+short_legal_form_exp = (r'(?i)\b(ООО|АО|ЗАО|ОАО|ПАО|ИП|НКО'
+                        r'|ТОО|ГК|СОЮЗ|ФОНД|ТД|ТФ|)')
+full_legal_form_exp = (r'(?i)\b(Акционерное общество|Компания|Общество с ограниченной ответственностью|'
+                       r'Публичное акционерное общество|Индивидуальный предприниматель|Группа компаний)')
+
+only_name_exp = r'[\s«"„“”\'‹›„“”‘’]*([\w\s\-.&«»"“”‘’„]+)\b'
+only_name_exp_2 = r'\s*["«„“”\'»][^"«„“”\'»]+["»“”\'»]'
+company_name_exp = all_legal_form_exp + only_name_exp
+company_name_exp_2 = all_legal_form_exp + only_name_exp_2
+
+invoice_exp = (r'(?i)Счет(?: на оплату)? №\s*([A-Za-zА-Яа-я0-9\-\/]+)\s+'
+               r'от\s+(\d{1,2}\s+[а-яА-Я]+(?:\s+\d{4})?)\s*г?\.?')
+
 inn_exp = r'(?i)\bИНН\b[:\s]*\d{10}\b'
 inn_exp_ip = r'(?i)\bИНН\b[:\s]*\d{12}\b'
 kpp_exp = r'(?i)\bКПП\b[:\s]*\d{9}\b'
 address_exp = [(r'(?i)(г\.|пос\.|пгт\.|с\.|город|р\.п\.)\s+[А-ЯЁа-яё0-9\s\-А-ЯЁа-яё0-9\s\],\s+'
-               r'(ул\.|пр\.|пер\.|шоссе|наб\.|пл\.|бульвар|проспект|дорога|тупик|проезд|улица)'
-               r'\s+[А-ЯЁа-яё0-9\s\-/]+'),
-                (r'(?i)[А-ЯЁа-яё0-9\s\-А-ЯЁа-яё0-9\s\]+\s(г\.|пос\.|пгт\.|с\.|город|р\.п\.),\s+'
-                 r'(ул\.|пр\.|пер\.|шоссе|наб\.|пл\.|бульвар|проспект|дорога|тупик|проезд|улица)'
-                 r'\s+[А-ЯЁа-яё0-9\s\-/]+')]
+                r'(ул\.|пр\.|пер\.|шоссе|наб\.|пл\.|бульвар|проспект|дорога|тупик|проезд|улица)'
+                r'\s+[А-ЯЁа-яё0-9\s\-/]+'),
+               (r'(?i)[А-ЯЁа-яё0-9\s\-А-ЯЁа-яё0-9\s\]+\s(г\.|пос\.|пгт\.|с\.|город|р\.п\.),\s+'
+                r'(ул\.|пр\.|пер\.|шоссе|наб\.|пл\.|бульвар|проспект|дорога|тупик|проезд|улица)'
+                r'\s+[А-ЯЁа-яё0-9\s\-/]+')]
 tel_exp = r'(?i)(тел.*)?((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ])[\d\- ]{7,10}'
 web_exp = r'(?<!\S)(\w*-?\w*\.?\w*-?\w*\.?\w*-?\w*[a-zA-Z]\.[\w-]{2,3})\b'
 mail_exp = r'(?<!\S)([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)'
 
+legal_form_dict = {'Общество с ограниченной ответственностью':'ООО',
+                   'Акционерное общество': 'АО',
+                   'Публичное акционерное общество': 'ПАО',
+                   'Индивидуальный предприниматель': 'ИП',
+                   'Группа компаний': 'ГК'}
+
 
 # the func for invoice_matter_extractor
 # in takes match as essentials, dict and key to check if it is in the dict
-# if not, it add in the essentials in the list
-# and if contrary it add the key and put the list with essentials
+# if not, add in the essentials in the list
+# and if contrary add the key and put the list with essentials
 def dict_adder(key, _dict, reg_match):
     if key in _dict.keys():
         if type(reg_match) is str:
@@ -66,13 +84,17 @@ def company_name_check(name_exp, item, r_dict):
         return None
 
 
-def address_check(address_exp, item, r_dict: dict, reg_num=0):
-    address = re.search(address_exp[reg_num], item)
+def address_check(address_exp_c, item, r_dict: dict, reg_num=0):
+    address = re.search(address_exp_c[reg_num], item)
     zsgp_address = {'city': 'Тюмень',
                     'street_type': 'тракт',
                     'street': 'Велижанский',
                     'building_num': '11'}
+    black_list = ['Можайск',
+                  'Ильинское',
+                  'Шексн']
     counter = 0
+    cnt_bit = 1/len(zsgp_address)
     if address is None:
         return None
     if 'address' in r_dict.keys():
@@ -82,38 +104,40 @@ def address_check(address_exp, item, r_dict: dict, reg_num=0):
             return None
         else:
             pass
-
-    for key in zsgp_address.keys():
-        if zsgp_address[key] in address[0]:
-            counter += 0.25
+    for black in black_list:
+        if black in address[0]:
+            return None
+    for key in zsgp_address.values():
+        if key in address[0]:
+            counter += cnt_bit
         elif len(address[0]) > 10:
             return address
-        elif reg_num < len(address_exp):
-            return address_check(address_exp[reg_num + 1], item, r_dict)
-    if counter == 1:
+        elif reg_num + 1 < len(address_exp_c):
+            return address_check(address_exp_c, item, r_dict, reg_num + 1)
+        else:
+            return address
+    if counter > 0.7:
         return None
+
 
 def kpp_check(kpp_exp_, item, r_dict: dict):
     zsgp_kpp = '720301001'
     kpp_ = re.search(kpp_exp_, item)
-
+    validator_kpp = r'[\d]+'
     if kpp_ is None or zsgp_kpp in kpp_[0]:
         return None
     elif 'kpp' in r_dict.keys():
         if r_dict['kpp'][0] in kpp_[0]:
             return None
     else:
-        if 'КПП ' in kpp_[0]:
-            return kpp_[0].replace('КПП ', '')
-        elif 'КПП' in kpp_[0]:
-            return kpp_[0].replace('КПП', '')
-        else:
-            return kpp_
+        kpp_clean = re.search(validator_kpp, kpp_[0])
+        return kpp_clean
+
 
 def inn_check(inn_exp_, item, r_dict: dict):
     zsgp_inn = '7202083210'
     inn_ = re.search(inn_exp_, item)
-    validator_inn = r'[\d]'
+    validator_inn = r'[\d]+'
 
     if inn_ is None or zsgp_inn in inn_[0]:
         return None
@@ -148,7 +172,6 @@ def tel_check(tel_exp_, item, r_dict: dict):
             else:
                 tel_counter += zsgp_num_cnt
 
-
         return tel_res[0].strip()
 
 
@@ -172,6 +195,7 @@ def invoice_matter_extractor(invoice_path):
         tel_re = tel_check(tel_exp, item, res_dict)
         web_re = re.search(web_exp, item)
         mail_re = re.search(mail_exp, item)
+        invoice_num = re.search(invoice_exp, item)
 
         if company_re is not None:
             dict_adder('company_name', res_dict, company_re)
@@ -197,14 +221,121 @@ def invoice_matter_extractor(invoice_path):
         if mail_re is not None:
             dict_adder('e_mail', res_dict, mail_re)
 
+        if invoice_num is not None:
+            dict_adder('invoice', res_dict, invoice_num)
+
     return res_dict
 
 
+def parencies_cleaner(a_str):
+    cleaner_str = r'«"„“”\'‹›„“”‘’»'
+    temp_item = a_str
+    for i in cleaner_str:
+        if i in a_str:
+            temp_item = temp_item.replace(i, '')
+    return temp_item
+
+
+def add_name_to_dict(short_l, full_l, name_c):
+    res_dict = {'legal': '',
+                'name': '',
+                'fill_flag': 0}
+    if short_l is not None:
+        short_l = short_l[0]
+        res_dict['legal'] = short_l
+        res_dict['name'] = name_c.replace(short_l, '').strip()
+        res_dict['fill_flag'] = bool(short_l) + bool(res_dict['name'])
+    elif (full_l is not None) and (full_l in legal_form_dict.keys()):
+        full_l = full_l[0]
+        res_dict['legal'] = legal_form_dict[full_l]
+        res_dict['name'] = name_c.replace(short_l, '').srip()
+        res_dict['fill_flag'] = bool(res_dict['legal']) + bool(res_dict['name'])
+    elif full_l not in legal_form_dict.keys():
+        print('not in legal dict')
+    else:
+        print('short and full re results probably empty')
+
+    return res_dict
+
+
+def name_chooser(r_dict, comp_exp):
+    # put the company list from the result dict
+    com_list = r_dict['company_name']
+    # define global var for the function result
+    res_com = {'legal': '',
+               'name': '',
+               'fill_flag': 0}
+    # iterate the company list and find the best option for company name
+    for i in com_list:
+
+        temp_com = re.search(comp_exp, i)
+        short_legal = re.search(short_legal_form_exp, i)
+        full_legal = re.search(full_legal_form_exp, i)
+        if temp_com is not None:
+            clean_name = parencies_cleaner(temp_com[0])
+            clean_list = clean_name.split()
+            clean_cnt = 1/len(clean_list)
+            name_cnt = 0
+            for j in clean_list:
+                if j in short_legal_form_exp:
+                    name_cnt += clean_cnt
+        else:
+            name_cnt = 1
+
+        if temp_com is not None and name_cnt < 0.95:
+
+            if res_com['fill_flag'] == 0:
+                temp_res_com = add_name_to_dict(short_legal, full_legal, clean_name)
+                if temp_res_com['fill_flag'] > 0:
+                    res_com = temp_res_com
+            elif res_com['fill_flag'] == 1:
+                temp_res_com = add_name_to_dict(short_legal, full_legal, clean_name)
+                if temp_res_com['fill_flag'] > 1:
+                    res_com = temp_res_com
+            else:
+                temp_res_com = add_name_to_dict(short_legal, full_legal, clean_name)
+                s_name_condition = (res_com['legal'] != temp_res_com['legal'] and
+                                    res_com['name'] != temp_res_com['name'])
+                if temp_res_com['fill_flag'] == 2 and s_name_condition:
+                    print('second possible company name found')
+        else:
+            clean_name = parencies_cleaner(i)
+            if res_com['fill_flag'] == 0:
+                temp_res_com = add_name_to_dict(short_legal, full_legal, clean_name)
+                if temp_res_com['fill_flag'] > 0:
+                    res_com = temp_res_com
+            elif res_com['fill_flag'] == 1:
+                temp_res_com = add_name_to_dict(short_legal, full_legal, clean_name)
+                if temp_res_com['fill_flag'] > 1:
+                    res_com = temp_res_com
+            else:
+                temp_res_com = add_name_to_dict(short_legal, full_legal, clean_name)
+                s_name_condition = (res_com['legal'] != temp_res_com['legal'] and
+                                    res_com['name'] != temp_res_com['name'])
+                if temp_res_com['fill_flag'] == 2 and s_name_condition:
+                    print('second possible company name found')
+    return [res_com['legal'], res_com['name']]
+
+def address_chooser(r_dict):
+    address_list = r_dict['address']
+    max_len = len(address_list[0])
+    res_addres = address_list[0]
+    for i in address_list:
+        if max_len < len(i):
+            max_len = len(i)
+    return res_addres
+
 ex_path = r"C:\Users\User\Downloads\drive-download-20250506T041516Z-001"
+
 path_list = os.listdir(ex_path)
 res_list = []
 for file in path_list:
-    res_list.append(invoice_matter_extractor(os.path.join(ex_path, file)))
+    temp_item = invoice_matter_extractor(os.path.join(ex_path, file))
+    if 'company_name' in temp_item.keys():
+        temp_item['company_name'] = name_chooser(temp_item, company_name_exp_2)
+    if 'address' in temp_item.keys():
+        temp_item['address'] = address_chooser(temp_item)
+    res_list.append(temp_item)
 
 cnt = 0
 for n, i in enumerate(res_list):
