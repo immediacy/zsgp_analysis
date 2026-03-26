@@ -181,6 +181,7 @@ cython_debug/
 *.laccdb
 *.ini
 *.json
+*.xml
 
 # My tools
 pydev_is_thread_alive.py
