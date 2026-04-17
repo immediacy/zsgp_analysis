@@ -24,7 +24,7 @@ payments_df['ticket2'] = payments_df.ticket.str[1]
 ticket_df = ticket_df.astype('str')
 # check if there is a ticket number in the database
 filtered_payments = payments_df[payments_df.ticket1.isin(ticket_df.НомерЗаявкиРИЭС)]
-#
+# extract a ticket form contract name
 no_ticket_payments = payments_df[payments_df.ticket1.isna()]
 no_ticket_payments.loc[:, 'contract_name_ticket'] = (no_ticket_payments
                                               .СчетНаОплатуДоговорКонтрагента
