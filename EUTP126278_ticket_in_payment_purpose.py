@@ -7,7 +7,7 @@ ticket_path = (r"G:\Мой диск\Tasks"
                r"\Заявки за 25-26 годы.xlsx")
 payments_path = (r"G:\Мой диск\Tasks"
                  r"\EUTP-126278 для МТ-6699264 Обновить метод upsertNonCashPayments"
-                 r"\Выгрузка в ОБП с номером заявки.xlsx")
+                 r"\Выгрузка в ОБП фильтр Покупатели.xlsx")
 
 # read and prepare the data
 payments_df = pd.read_excel(payments_path)
