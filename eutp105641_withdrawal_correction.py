@@ -19,7 +19,7 @@ contractors_etagi_df = drop_nan_columns(contractors_etagi_df)
 
 withdraw_path = (r"G:\Мой диск\Tasks"
                  r"\EUTP-105641 Корректировка документа списания с расчетного счета"
-                 r"\Документы списания + Назначение платежа.xlsx")
+                 r"\2026 05 04 Выгрузка Документы списания.xlsx")
 e_contracts_path = (r"G:\Мой диск\Tasks"
                     r"\EUTP-105641 Корректировка документа списания с расчетного счета"
                     r"\Выгрузка Договоры Е-Смарт с риелторами Новостройки+Вторичка.xlsx")
@@ -118,5 +118,5 @@ print(f'amount of not numeric inn {not_numeric_inn} in payment purpose (double c
 print('doubled contract exceptions {}'.format(doubled_contract.shape[0]))
 total_exceptions_number = doubled_inn_number + incorrect_inn + doubled_contract.shape[0]
 print('total exceptions amount {}'.format(total_exceptions_number))
-print('the percentage of exceptions through the search{}'.format(total_exceptions_number /
-                                                                 withdraw_docs.shape[0] * 100))
+print('the percentage of exceptions through the search {}%'.format(round(total_exceptions_number /
+                                                                 withdraw_docs.shape[0] * 100), 2))
